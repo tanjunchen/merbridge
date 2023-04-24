@@ -13,17 +13,22 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 #include "headers/helpers.h"
 #include "headers/mesh.h"
 #include <linux/bpf.h>
 #include <linux/in.h>
 
+// 劫持 bind 系统调用并修改地址。
+
 // this prog hook linkerd bind OUTPUT_LISTENER
 // which will makes the listen address change from 127.0.0.1:4140 to
 // 0.0.0.0:4140
+// 处理 IPV4
 #if ENABLE_IPV4
 __section("cgroup/bind4") int mb_bind(struct bpf_sock_addr *ctx)
 {
+// 判断mesh的类型是否为linkerd，如果是会将监听地址从127.0.0.1:4140变为0.0.0.0:4140，4140端口是linkerd的出站流量重定向端口。
 #if MESH != LINKERD
     // only works on linkerd
     return 1;

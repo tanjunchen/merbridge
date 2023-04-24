@@ -13,12 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 #include "headers/cgroup.h"
 #include "headers/helpers.h"
 #include "headers/maps.h"
 #include "headers/mesh.h"
 #include <linux/bpf.h>
 #include <linux/in.h>
+
+// 在 socket 发起 sendmsg 系统调用时触发执行
 
 #if ENABLE_IPV4
 __section("cgroup/sendmsg4") int mb_sendmsg4(struct bpf_sock_addr *ctx)
@@ -34,17 +37,21 @@ __section("cgroup/sendmsg4") int mb_sendmsg4(struct bpf_sock_addr *ctx)
                                   DNS_CAPTURE_PORT_FLAG)) {
         // this query is not from mesh injected pod, or DNS CAPTURE not enabled.
         // we do nothing.
+        // 此查询不是来自网格注入的 pod，或者未启用 DNS CAPTURE。什么都不处理。
         return 1;
     }
     __u64 uid = bpf_get_current_uid_gid() & 0xffffffff;
     if (uid != SIDECAR_USER_ID) {
+        // 获取当前netns的cookie
         __u64 cookie = bpf_get_socket_cookie_addr(ctx);
         // needs rewrite
+        // 需要重写
         struct origin_info origin;
         memset(&origin, 0, sizeof(origin));
         set_ipv4(origin.ip, ctx->user_ip4);
         origin.port = ctx->user_port;
         // save original dst
+        // 将cookie和源地址信息更新到cookie_original_dst中，更新成功返回0，失败返回负值
         if (bpf_map_update_elem(&cookie_original_dst, &cookie, &origin,
                                 BPF_ANY)) {
             printk("update origin cookie failed: %d", cookie);

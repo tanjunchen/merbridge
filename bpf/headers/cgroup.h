@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// pragma once 是 C/C++ 预处理指令，保证头文件只被编译一次
 #pragma once
 #include "helpers.h"
 #include "maps.h"
@@ -27,6 +28,7 @@ limitations under the License.
 #define DNS_CAPTURE_PORT_FLAG (1 << 1)
 
 // get_current_cgroup_info return 1 if succeed, 0 for error
+// get_current_cgroup_info 成功返回1，错误返回0
 static inline int get_current_cgroup_info(void *ctx,
                                           struct cgroup_info *cg_info)
 {
@@ -92,6 +94,7 @@ static inline int get_current_cgroup_info(void *ctx,
 
 // is_port_listen_in_cgroup is used to detect whether a port is listened to in
 // the current cgroup, using cgroup_info_map for caching.
+// is_port_listen_in_cgroup用于检测当前cgroup是否监听某个端口，使用cgroup_info_map进行缓存。
 static inline int is_port_listen_in_cgroup(void *ctx, __u16 is_tcp, __u32 ip,
                                            __u16 port, __u16 port_flag)
 {

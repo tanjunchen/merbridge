@@ -13,10 +13,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 #include "headers/helpers.h"
 #include "headers/maps.h"
 #include <linux/bpf.h>
 #include <linux/in.h>
+
+// 在 socket 发起 sendmsg 系统调用时触发执行
 
 __section("sk_msg") int mb_msg_redir(struct sk_msg_md *msg)
 {
@@ -26,6 +29,7 @@ __section("sk_msg") int mb_msg_redir(struct sk_msg_md *msg)
     p.sport = msg->remote_port >> 16;
 
     switch (msg->family) {
+    // 判断协议类型
 #if ENABLE_IPV4
     case 2:
         // ipv4
@@ -42,6 +46,15 @@ __section("sk_msg") int mb_msg_redir(struct sk_msg_md *msg)
 #endif
     }
 
+    // 根据四元组信息，从 sock_pair_map 中读取 sock
+    // 然后通过 bpf_msg_redirect_hash 直接转发，加速请求
+    /**
+    bpf_msg_redirect_hash 参数解析 bpf_msg_redirect_hash(msg, &sock_pair_map, &p, 0);
+    msg：用户可访问的待发送数据的元信息
+    sock_pair_map：这个 BPF 程序 attach 到的 sockhash map
+    p：在 map 中索引用的 key
+    0：BPF_F_INGRESS，放到对端的哪个 queue
+    */
     long ret = bpf_msg_redirect_hash(msg, &sock_pair_map, &p, BPF_F_INGRESS);
     if (ret)
         debugf("redirect %d bytes with eBPF successfully", msg->size);

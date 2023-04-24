@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 #include "headers/helpers.h"
 #include "headers/maps.h"
 #include "headers/mesh.h"
@@ -26,6 +27,7 @@ limitations under the License.
 #include <linux/tcp.h>
 #include <stddef.h>
 
+// TC 处理入口流量
 __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
 {
     void *data = (void *)(long)skb->data;
@@ -185,6 +187,7 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
     return TC_ACT_OK;
 }
 
+// TC 处理出口流量
 __section("classifier_egress") int mb_tc_egress(struct __sk_buff *skb)
 {
     void *data = (void *)(long)skb->data;

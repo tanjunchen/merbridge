@@ -13,6 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+// pragma once 是 C/C++ 预处理指令，保证头文件只被编译一次
 #pragma once
 #include <asm-generic/int-ll64.h>
 #include <linux/bpf.h>
@@ -47,6 +49,7 @@ limitations under the License.
 
 #define PIN_GLOBAL_NS 2
 
+// 存储 socket 信息的映射表
 struct bpf_elf_map {
     __u32 type;
     __u32 size_key;
@@ -57,39 +60,49 @@ struct bpf_elf_map {
     __u32 pinning;
 };
 
+// 获取 gid uid
 static __u64 (*bpf_get_current_pid_tgid)() = (void *)
     BPF_FUNC_get_current_pid_tgid;
 static __u64 (*bpf_get_current_uid_gid)() = (void *)
     BPF_FUNC_get_current_uid_gid;
 static __u64 (*bpf_get_current_cgroup_id)() = (void *)
     BPF_FUNC_get_current_cgroup_id;
+// 根据用户定义的输出，将 BPF 程序产生的日志消息保存在用来跟踪内核的文件夹
 static void (*bpf_trace_printk)(const char *fmt, int fmt_size,
                                 ...) = (void *)BPF_FUNC_trace_printk;
+// 用当前进程名字填充第一个参数地址
 static __u64 (*bpf_get_current_comm)(void *buf, __u32 size_of_buf) = (void *)
     BPF_FUNC_get_current_comm;
-
+// 获取套接字的 cookie，套接字通过 bpf_sock_ops 获得
 static __u64 (*bpf_get_socket_cookie_ops)(struct bpf_sock_ops *skops) = (void *)
     BPF_FUNC_get_socket_cookie;
+// 获取套接字的 cookie，套接字通过 bpf_sock_addr 获得
 static __u64 (*bpf_get_socket_cookie_addr)(struct bpf_sock_addr *ctx) = (void *)
     BPF_FUNC_get_socket_cookie;
+// 在 bpf_map 中查找与 key 关联的条目
 static void *(*bpf_map_lookup_elem)(struct bpf_elf_map *map, const void *key) =
     (void *)BPF_FUNC_map_lookup_elem;
+// 添加或更新 map 中 key 关联的条目
 static __u64 (*bpf_map_update_elem)(struct bpf_elf_map *map, const void *key,
                                     const void *value, __u64 flags) = (void *)
     BPF_FUNC_map_update_elem;
 static __u64 (*bpf_map_delete_elem)(struct bpf_elf_map *map, const void *key) =
     (void *)BPF_FUNC_map_delete_elem;
+// 在子网络命名空间 netns 中查找与 TCP 套接字匹配的元组
 static struct bpf_sock *(*bpf_sk_lookup_tcp)(
     void *ctx, struct bpf_sock_tuple *tuple, __u32 tuple_size, __u64 netns,
     __u64 flags) = (void *)BPF_FUNC_sk_lookup_tcp;
+// 在子网络命名空间 netns 中查找与 UDP 套接字匹配的元组
 static struct bpf_sock *(*bpf_sk_lookup_udp)(
     void *ctx, struct bpf_sock_tuple *tuple, __u32 tuple_size, __u64 netns,
     __u64 flags) = (void *)BPF_FUNC_sk_lookup_udp;
 static long (*bpf_sk_release)(struct bpf_sock *sock) = (void *)
     BPF_FUNC_sk_release;
+// 添加或更新引用套接字的 sockhash map
 static long (*bpf_sock_hash_update)(
     struct bpf_sock_ops *skops, struct bpf_elf_map *map, void *key,
     __u64 flags) = (void *)BPF_FUNC_sock_hash_update;
+// sockhash map 消息重定向
 static long (*bpf_msg_redirect_hash)(
     struct sk_msg_md *md, struct bpf_elf_map *map, void *key,
     __u64 flags) = (void *)BPF_FUNC_msg_redirect_hash;
@@ -222,6 +235,7 @@ static inline int is_port_listen_udp_current_ns6(void *ctx, __u32 *ip,
     return 0;
 }
 
+// 存储源信息
 struct origin_info {
     __u32 ip[4];
     __u32 pid;
@@ -230,6 +244,7 @@ struct origin_info {
     __u16 flags;
 };
 
+// 存储源ip、目的ip、源端口、目的端口
 struct pair {
     __u32 sip[4];
     __u32 dip[4];

@@ -13,7 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+// pragma once 是 C/C++ 预处理指令，保证头文件只被编译一次
 #pragma once
+// 宏定义，特殊的 Mark 标记端口
 #define SOCK_IP_MARK_PORT 39807
 
 #define ISTIO 1
@@ -25,6 +28,8 @@ limitations under the License.
 #define MESH 1
 #endif
 
+// 支持 Istio、Kuma、Linkerd、osm 类型的网格
+// 相关 Mesh 配置文件
 #if MESH == ISTIO
 
 #ifndef OUT_REDIRECT_PORT
