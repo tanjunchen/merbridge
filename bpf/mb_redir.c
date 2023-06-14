@@ -20,7 +20,6 @@ limitations under the License.
 #include <linux/in.h>
 
 // 在 socket 发起 sendmsg 系统调用时触发执行
-
 __section("sk_msg") int mb_msg_redir(struct sk_msg_md *msg)
 {
     struct pair p;

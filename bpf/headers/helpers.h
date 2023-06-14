@@ -150,6 +150,7 @@ static long (*bpf_skb_store_bytes)(struct __sk_buff *skb, __u32 offset,
 
 static const __u32 ip_zero = 0;
 // 127.0.0.1 (network order)
+// 0xFFFFFF 127.0.0.1 网络字节序
 static const __u32 localhost = 127 + (1 << 24);
 
 static inline __u32 get_ipv4(__u32 *ip) { return ip[3]; }

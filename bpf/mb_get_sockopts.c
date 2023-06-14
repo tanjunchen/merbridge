@@ -20,14 +20,16 @@ limitations under the License.
 #include <linux/in.h>
 
 #define MAX_OPS_BUFF_LENGTH 4096
-// 80是ORIGINAL_DST在内核中的编号
+// 80 是 ORIGINAL_DST 在内核中的编号
 #define SO_ORIGINAL_DST 80
+
+// 劫持 cgroup/getsockopt 事件
 
 __section("cgroup/getsockopt") int mb_get_sockopt(struct bpf_sockopt *ctx)
 {
     // currently, eBPF can not deal with optlen more than 4096 bytes, so, we
     // should limit this.
-    // ebpf 无法处理大于4096字节的数据
+    // ebpf 无法处理大于 4096 字节的数据
     if (ctx->optlen > MAX_OPS_BUFF_LENGTH) {
         debugf("optname: %d, force set optlen to %d, original optlen %d is too "
                "high",
@@ -51,7 +53,7 @@ __section("cgroup/getsockopt") int mb_get_sockopt(struct bpf_sockopt *ctx)
     case 2: // ipv4
         set_ipv4(p.dip, ctx->sk->src_ip4);
         set_ipv4(p.sip, ctx->sk->dst_ip4);
-        // 根据四元组信息从pair_original_dst取出原始目的地址并返回
+        // 根据四元组信息从 pair_original_dst 取出原始目的地址并返回
         origin = bpf_map_lookup_elem(&pair_original_dst, &p);
         if (origin) {
             // rewrite original_dst
@@ -79,7 +81,7 @@ __section("cgroup/getsockopt") int mb_get_sockopt(struct bpf_sockopt *ctx)
         set_ipv6(p.dip, ctx->sk->src_ip6);
         set_ipv6(p.sip, ctx->sk->dst_ip6);
         origin = bpf_map_lookup_elem(&pair_original_dst, &p);
-        // 根据四元组信息从pair_original_dst取出原始目的地址并返回
+        // 根据四元组信息从 pair_original_dst 取出原始目的地址并返回
         if (origin) {
             // rewrite original_dst
             // 重写原始目的地址

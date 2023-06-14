@@ -36,8 +36,10 @@ static inline int get_current_cgroup_info(void *ctx,
         printk("cg_info can not be NULL");
         return 0;
     }
+    // 获取当前进程所属的 cgroup（控制组）的标识符。
     __u64 cgroup_id = bpf_get_current_cgroup_id();
     void *info = bpf_map_lookup_elem(&cgroup_info_map, &cgroup_id);
+    // 如果 cgroup map 中不存在该 cgroup，则缓存该分组。
     if (!info) {
         struct cgroup_info _default = {
             .id = cgroup_id,
@@ -46,6 +48,7 @@ static inline int get_current_cgroup_info(void *ctx,
             .flags = 0,
             .detected_flags = 0,
         };
+// 是否开启 CNI 模式
 #if ENABLE_CNI_MODE
         // get ip addresses of current pod/ns.
         struct bpf_sock_tuple tuple = {};
@@ -94,7 +97,7 @@ static inline int get_current_cgroup_info(void *ctx,
 
 // is_port_listen_in_cgroup is used to detect whether a port is listened to in
 // the current cgroup, using cgroup_info_map for caching.
-// is_port_listen_in_cgroup用于检测当前cgroup是否监听某个端口，使用cgroup_info_map进行缓存。
+// is_port_listen_in_cgroup 用于检测当前 cgroup 是否监听某个端口，使用 cgroup_info_map 进行缓存。
 static inline int is_port_listen_in_cgroup(void *ctx, __u16 is_tcp, __u32 ip,
                                            __u16 port, __u16 port_flag)
 {

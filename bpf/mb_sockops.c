@@ -34,17 +34,17 @@ static inline int sockops_ipv4(struct bpf_sock_ops *skops)
     p.sport = bpf_htons(skops->local_port);
     set_ipv4(p.dip, skops->remote_ip4);
     p.dport = skops->remote_port >> 16;
-    // 在cookie_original_dst查找与cookie相关的条目
+    // 在 cookie_original_dst 查找与 cookie 相关的条目
     struct origin_info *dst =
         bpf_map_lookup_elem(&cookie_original_dst, &cookie);
-    //如果存在cookie
+    // 如果存在 cookie
     if (dst) {
         struct origin_info dd = *dst;
-        // dd保存原始目的信息
+        // dd 保存原始目的信息
         if (!(dd.flags & 1)) {
             __u32 pid = dd.pid;
             // process ip not detected
-            // 判断源IP和目的地址IP是否一致
+            // 判断源 IP 和目的地址 IP 是否一致
             if (skops->local_ip4 == envoy_ip ||
                 skops->local_ip4 == skops->remote_ip4) {
                 // envoy to local
@@ -63,8 +63,9 @@ static inline int sockops_ipv4(struct bpf_sock_ops *skops)
 #endif
             } else {
                 // envoy to envoy
+                // envoy 访问 envoy
                 __u32 ip = skops->local_ip4;
-                // 将当前的ProcessID和IP信息写入process_ip这个map
+                // 将当前的 ProcessID 和 IP 信息写入 process_ip 这个 map
                 bpf_map_update_elem(&process_ip, &pid, &ip, BPF_ANY);
                 debugf("detected process %d's ip is %pI4", pid, &ip);
             }
@@ -72,10 +73,9 @@ static inline int sockops_ipv4(struct bpf_sock_ops *skops)
         // get_sockopts can read pid and cookie,
         // we should write a new map named pair_original_dst
         // get_sockopts 可以读取 pid 和 cookie，我们应该写一个新的 map 命名为 pair_original_dst
-
-        // 将四元组信息和对应的原始目的地址写入 pair_original_dst中
+        // 将四元组信息和对应的原始目的地址写入 pair_original_dst 中
         bpf_map_update_elem(&pair_original_dst, &p, &dd, BPF_ANY);
-        // 将当前sock和四元组保存在sock_pair_map中
+        // 将当前 sock 和四元组保存在 sock_pair_map中
         bpf_sock_hash_update(skops, &sock_pair_map, &p, BPF_NOEXIST);
     } else if (skops->local_port == OUT_REDIRECT_PORT ||
                skops->local_port == IN_REDIRECT_PORT ||
@@ -105,9 +105,9 @@ static inline int sockops_ipv6(struct bpf_sock_ops *skops)
         // we should write a new map named pair_original_dst
         // get_sockopts 可以读取 pid 和 cookie，我们应该写一个新的 map 命名为 pair_original_dst
 
-        // 将四元组信息和对应的原始目的地址写入 pair_original_dst中
+        // 将四元组信息和对应的原始目的地址写入 pair_original_dst 中
         bpf_map_update_elem(&pair_original_dst, &p, &dd, BPF_ANY);
-        // 将当前sock和四元组保存在sock_pair_map中
+        // 将当前 sock 和四元组保存在 sock_pair_map 中
         bpf_sock_hash_update(skops, &sock_pair_map, &p, BPF_NOEXIST);
     } else if (skops->local_port == OUT_REDIRECT_PORT ||
                skops->local_port == IN_REDIRECT_PORT ||
@@ -131,12 +131,13 @@ __section("sockops") int mb_sockops(struct bpf_sock_ops *skops)
         case 2:
             // AF_INET, we don't include socket.h, because it may
             // cause an import error.
-            // 记录 socket 信息到 sockmap
+            // 处理 ipv4 协议
             return sockops_ipv4(skops);
 #endif
 #if ENABLE_IPV6
         case 10:
             // AF_INET6
+            // 处理 ipv6 协议
             return sockops_ipv6(skops);
 #endif
         }

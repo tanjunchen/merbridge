@@ -22,10 +22,10 @@ limitations under the License.
 #include <linux/in.h>
 
 // 在 socket 发起 sendmsg 系统调用时触发执行
-
 #if ENABLE_IPV4
 __section("cgroup/sendmsg4") int mb_sendmsg4(struct bpf_sock_addr *ctx)
 {
+// 处理 istio 或者 kuma 流量
 #if MESH != ISTIO && MESH != KUMA
     // only works on istio and kuma
     return 1;
@@ -38,11 +38,12 @@ __section("cgroup/sendmsg4") int mb_sendmsg4(struct bpf_sock_addr *ctx)
         // this query is not from mesh injected pod, or DNS CAPTURE not enabled.
         // we do nothing.
         // 此查询不是来自网格注入的 pod，或者未启用 DNS CAPTURE。什么都不处理。
+        // 我们只处理由 istio 或 kuma 管理的 pod 的流量。
         return 1;
     }
     __u64 uid = bpf_get_current_uid_gid() & 0xffffffff;
     if (uid != SIDECAR_USER_ID) {
-        // 获取当前netns的cookie
+        // 获取当前 netns 的 cookie
         __u64 cookie = bpf_get_socket_cookie_addr(ctx);
         // needs rewrite
         // 需要重写

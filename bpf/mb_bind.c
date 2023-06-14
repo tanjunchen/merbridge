@@ -19,7 +19,7 @@ limitations under the License.
 #include <linux/bpf.h>
 #include <linux/in.h>
 
-// 劫持 bind 系统调用并修改地址。
+// 劫持 bind 系统调用并修改监听地址。
 
 // this prog hook linkerd bind OUTPUT_LISTENER
 // which will makes the listen address change from 127.0.0.1:4140 to

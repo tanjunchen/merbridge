@@ -41,9 +41,11 @@ static inline int udp_connect4(struct bpf_sock_addr *ctx)
                                   DNS_CAPTURE_PORT_FLAG)) {
         // this query is not from mesh injected pod, or DNS CAPTURE not enabled.
         // we do nothing.
+        // 忽略查询不是来自网格注入的 pod，或者未启用 DNS CAPTURE 的连接请求。
         return 1;
     }
 
+    // 0xffffffff 表示最大的无符号整数值
     __u64 uid = bpf_get_current_uid_gid() & 0xffffffff;
     if (uid != SIDECAR_USER_ID) {
         // needs rewrite
@@ -70,7 +72,6 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
     if (!get_current_cgroup_info(ctx, &cg_info)) {
         return 1;
     }
-    // 绕过正常流量。
     // 我们只处理由 istio 或 kuma 管理的 pod 的流量。
     if (!cg_info.is_in_mesh) {
         // bypass normal traffic. we only deal pod's
@@ -87,18 +88,18 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
     }
     __u64 uid = bpf_get_current_uid_gid() & 0xffffffff;
     __u32 dst_ip = ctx->user_ip4;
-    // istio-proxy 用户身份 uid 为 1337
-    // 如果 uid 不是 1337
+    // istio-proxy 用户身份 uid 不是 1337
     if (uid != SIDECAR_USER_ID) {
-        // 如果应用调用的是本地即 127 开头的话，则跳过
+        // 检查是否为本地回环地址（loopback address）
+        // 如果应用调用的是本地回环地址，则跳过
         if ((dst_ip & 0xff) == 0x7f) {
             // app call local, bypass.
             return 1;
         }
-        // 获取当前netns的cookie
+        // 获取当前 netns 的 cookie
         __u64 cookie = bpf_get_socket_cookie_addr(ctx);
         // app call others
-        // uid不是1337且应用没有调用本地
+        // 调用其他的应用，uid 不是 1337 且应用没有调用本地
         debugf("call from user container: cookie: %d, ip: %pI4, port: %d",
                cookie, &dst_ip, bpf_htons(ctx->user_port));
 
@@ -109,7 +110,7 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
         set_ipv4(origin.ip, dst_ip);
         origin.port = ctx->user_port;
         origin.flags = 1;
-        // 将cookie和源地址信息更新到cookie_original_dst中，更新成功返回0，失败返回负值
+        // 将 cookie 和源地址信息更新到 cookie_original_dst 中，更新成功返回 0，失败返回负值
         if (bpf_map_update_elem(&cookie_original_dst, &cookie, &origin,
                                 BPF_ANY)) {
             printk("write cookie_original_dst failed");
@@ -129,7 +130,7 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
                            &curr_pod_ip, bpf_htons(ctx->user_port));
                     return 1;
                 }
-                // 判断是否在 Mesh 排除范围 IS_EXCLUDE_IPRANGES 范围
+                // 判断是否在 Mesh 排除 IS_EXCLUDE_IPRANGES 范围
                 IS_EXCLUDE_IPRANGES(pod->exclude_out_ranges, dst_ip, &exclude);
                 debugf("exclude ipranges: %x, exclude: %d",
                        pod->exclude_out_ranges[0].net, exclude);
@@ -140,7 +141,7 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
                     return 1;
                 }
                 int include = 0;
-                // 判断是否在 Mesh 排除范围 IS_INCLUDE_PORT 范围
+                // 判断是否在 Mesh 纳管 IS_INCLUDE_PORT 范围
                 IS_INCLUDE_PORT(pod->include_out_ports, ctx->user_port,
                                 &include);
                 if (!include) {
@@ -149,7 +150,7 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
                            bpf_htons(ctx->user_port), &curr_pod_ip);
                     return 1;
                 }
-                // 判断是否在 Mesh 排除范围 IS_INCLUDE_IPRANGES 范围
+                // 判断是否在 Mesh 纳管 IS_INCLUDE_IPRANGES 范围
                 IS_INCLUDE_IPRANGES(pod->include_out_ranges, dst_ip, &include);
                 if (!include) {
                     debugf("dest %pI4 not in pod(%pI4)'s include_out_ranges, "
@@ -201,6 +202,8 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
             // using 127.0.0.1 directly is to avoid conflicts between the
             // quaternions of different Pods when the quaternions are
             // subsequently processed.
+            // 如果获取不到 pod ip，我们重写 dest address。之所以尝试 127.128.0.0/20 网段的IP，而不是直接使用 127.0.0.1，
+            // 是为了避免不同 Pod 的四元数在四元数匹配时发生冲突，随后处理。
             // 因为在不同的Pod中，可能产生冲突的四元组，使用此方式即可巧妙地避开冲突
             ctx->user_ip4 = bpf_htonl(0x7f800000 | (outip++));
             if (outip >> 20) {
@@ -209,11 +212,10 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
         }
         ctx->user_port = bpf_htons(OUT_REDIRECT_PORT);
     } else {
-        // from envoy to others
-        // 从envoy到其他
+        // from envoy to others 从 envoy 进程中访问其他应用
         __u32 _dst_ip[4];
         set_ipv4(_dst_ip, dst_ip);
-        // 目的 pod ip没有在节点中，绕过
+        // 目的 pod ip 没有在节点中，绕过
         struct pod_config *pod = bpf_map_lookup_elem(&local_pod_ips, _dst_ip);
         if (!pod) {
             // dst ip is not in this node, bypass
@@ -223,13 +225,12 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
 
         // dst ip is in this node, but not the current pod,
         // it is envoy to envoy connecting.
-        // 处理同节点加速
-        // 目的地址在当前节点，但是不在当前pod
+        // 目的地址在当前节点，但是不在当前 pod 中，处理同节点加速
         struct origin_info origin;
         memset(&origin, 0, sizeof(origin));
         set_ipv4(origin.ip, dst_ip);
         origin.port = ctx->user_port;
-        // 如果存在则属于envoy到其他envoy
+        // 如果存在则属于 envoy 到其他 envoy
         if (curr_pod_ip) {
             if (curr_pod_ip != dst_ip) {
                 // call other pod, need redirect port.
@@ -256,6 +257,7 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
             }
             origin.flags |= 1;
         } else {
+            // 不能获取到 Pod ip，则回退到 legacy 模式
             // can not get current pod ip, we use the legacy mode.
 
             // u64 bpf_get_current_pid_tgid(void)
@@ -276,7 +278,7 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
                 }
                 origin.flags |= 1;
                 // envoy to app, no rewrite
-                // envoy到应用程序，不用重写
+                // envoy 到应用程序，不用重写
             } else {
                 origin.flags = 0;
                 origin.pid = pid;
@@ -288,6 +290,7 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
                 // if src is equals dst, it means envoy call self pod,
                 // we should reject this traffic in sockops,
                 // envoy will create a new connection to self pod.
+                // envoy 访问 Envoy，重定向到 15006 端口
                 ctx->user_port = bpf_htons(IN_REDIRECT_PORT);
 #endif
             }
@@ -328,11 +331,12 @@ static inline int udp_connect6(struct bpf_sock_addr *ctx)
     // only works on istio and kuma
     return 1;
 #endif
+    // 忽略非 udp 连接
     if (bpf_htons(ctx->user_port) != 53) {
         return 1;
     }
-     // 判断端口是否在监听当前的netns，以istio为例，OUT_REDIRECT_PORT是15001
-     // 如果15001端口没有监听当前ns，则绕过，只需要处理istio管理的pod间流量
+     // 判断端口是否在监听当前的 netns，以 istio 为例，OUT_REDIRECT_PORT是 15001
+     // 如果 15001 端口没有监听当前 ns，则绕过，只需要处理 istio 管理的 pod 间流量
     if (!(is_port_listen_current_ns6(ctx, ip_zero6, OUT_REDIRECT_PORT) &&
           is_port_listen_udp_current_ns6(ctx, localhost6, DNS_CAPTURE_PORT))) {
         // this query is not from mesh injected pod, or DNS CAPTURE not enabled.
@@ -365,6 +369,7 @@ static inline int tcp_connect6(struct bpf_sock_addr *ctx)
     if (!get_current_cgroup_info(ctx, &cg_info)) {
         return 1;
     }
+    // 处理 istio 流量
     if (!cg_info.is_in_mesh) {
         // bypass normal traffic. we only deal pod's
         // traffic managed by istio or kuma.
@@ -379,14 +384,17 @@ static inline int tcp_connect6(struct bpf_sock_addr *ctx)
     if (uid != SIDECAR_USER_ID) {
         if (ipv6_equal(dst_ip, localhost6)) {
             // app call local, bypass.
+            // 应用访问本地，透传流量
             return 1;
         }
         __u64 cookie = bpf_get_socket_cookie_addr(ctx);
         // app call others
+        // 应用访问其他应用
         debugf("call from user container: cookie: %d, ip: %pI6c, port: %d",
                cookie, dst_ip, bpf_htons(ctx->user_port));
 
         // we need redirect it to envoy.
+        // 重定向流量到 envoy
         struct origin_info origin;
         memset(&origin, 0, sizeof(origin));
         set_ipv6(origin.ip, dst_ip);
@@ -401,6 +409,7 @@ static inline int tcp_connect6(struct bpf_sock_addr *ctx)
 
         // if we can get the pod ip, we use bind func to bind the pod's ip
         // as the source ip to avoid quaternions conflict of different pods.
+        // 如果我们能获取到 pod ip，我们使用 bind func 将 pod 的 ip 绑定为源 ip，避免不同 pod 的四元组冲突。
         struct sockaddr_in6 addr;
         set_ipv6(addr.sin6_addr.in6_u.u6_addr32, curr_pod_ip);
         addr.sin6_port = 0;
@@ -413,6 +422,7 @@ static inline int tcp_connect6(struct bpf_sock_addr *ctx)
         ctx->user_port = bpf_htons(OUT_REDIRECT_PORT);
     } else {
         // from envoy to others
+        // envoy 访问其他应用的流量
         if (!bpf_map_lookup_elem(&local_pod_ips, dst_ip)) {
             // dst ip is not in this node, bypass
             debugf("dest ip: %pI6c not in this node, bypass", dst_ip);
@@ -420,6 +430,7 @@ static inline int tcp_connect6(struct bpf_sock_addr *ctx)
         }
         // dst ip is in this node, but not the current pod,
         // it is envoy to envoy connecting.
+        // dst ip 在此节点中，但不在当前 pod 中，它是 envoy 到 envoy 连接。
         struct origin_info origin;
         memset(&origin, 0, sizeof(origin));
         origin.port = ctx->user_port;

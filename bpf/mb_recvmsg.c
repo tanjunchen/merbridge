@@ -38,7 +38,7 @@ __section("cgroup/recvmsg4") int mb_recvmsg4(struct bpf_sock_addr *ctx)
         // printk("not from pod");
         return 1;
     }
-    // 获取当前netns的cookie
+    // 获取当前 netns 的 cookie
     __u64 cookie = bpf_get_socket_cookie_addr(ctx);
     struct origin_info *origin = (struct origin_info *)bpf_map_lookup_elem(
         &cookie_original_dst, &cookie);
