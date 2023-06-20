@@ -31,7 +31,7 @@ struct bpf_elf_map __section("maps") cookie_original_dst = {
 // local_pods stores Pods' ips in current node.
 // which can be set by controller.
 // only contains injected pods.
-// 保存当前节点中的 pod 的 ip 信息,将已经注入 Sidecar的Pod IP地址写入local_pod_ips
+// 保存当前节点中的 pod 的 ip 信息,将已经注入 Sidecar 的 Pod IP 地址写入 local_pod_ips
 struct bpf_elf_map __section("maps") local_pod_ips = {
     .type = BPF_MAP_TYPE_HASH,
     .size_key = sizeof(__u32) * 4,
@@ -41,7 +41,7 @@ struct bpf_elf_map __section("maps") local_pod_ips = {
 };
 
 // process_ip stores envoy's ip address.
-// 保存 envoy的 ip 地址与进程 pid 
+// 保存 envoy 的 ip 地址与进程 pid 
 struct bpf_elf_map __section("maps") process_ip = {
     .type = BPF_MAP_TYPE_LRU_HASH,
     .size_key = sizeof(__u32),
@@ -67,7 +67,7 @@ struct bpf_elf_map __section("maps") pair_original_dst = {
     // .pinning = PIN_GLOBAL_NS,
 };
 
-// 保存当前sock和四元组信息
+// 保存当前 sock 和四元组信息
 struct bpf_elf_map __section("maps") sock_pair_map = {
     .type = BPF_MAP_TYPE_SOCKHASH,
     .size_key = sizeof(struct pair),
