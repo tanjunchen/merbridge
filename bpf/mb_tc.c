@@ -34,6 +34,8 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
     void *data_end = (void *)(long)skb->data_end;
     struct ethhdr *eth = (struct ethhdr *)data;
     if ((void *)(eth + 1) > data_end) {
+        // "TC_ACT_SHOT" 是指在分类器_ingress（输入分类器）中采取的一种动作。
+        // 它表示将数据包从分类器_ingress中发送出去，并继续在网络设备中进行后续处理或转发。
         return TC_ACT_SHOT;
     }
 
@@ -136,7 +138,7 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
         // we will rewrite the dest port from 80 to 15006
         // which will be: 10.0.0.1:23456 => 172.31.0.123:15006
         
-        // 重写链接 10.0.0.1:23456 => 172.31.0.123:15006 
+        // 重写连接 10.0.0.1:23456 => 172.31.0.123:15006 
         struct pair p;
         memset(&p, 0, sizeof(p));
         set_ipv6(p.sip, src_ip);
@@ -152,7 +154,15 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
         origin.flags = TC_ORIGIN_FLAG;
         bpf_map_update_elem(&pair_original_dst, &p, &origin, BPF_NOEXIST);
 
+        // 用于在 eBPF 程序中进行 L4 层（传输层，如 TCP、UDP）校验和的替换操作。
+        // 它接受一个参数 ctx，表示当前的上下文，以及源校验和 from 和目标校验和 to。
+        // 函数会在当前上下文中替换源校验和为目标校验和，并相应地更新校验和字段。
+        // 这个函数在网络编程中常用于计算和修正数据包的校验和。
         bpf_l4_csum_replace(skb, csum_off, dst_port, in_port, sizeof(dst_port));
+        // 辅助函数用于将数据存储到 eBPF 程序所处理的网络数据包中。
+        // 它接受一个参数 skb，表示指向数据包的指针，以及偏移量 offset 和长度 len。
+        // 函数会将给定长度的数据存储到数据包中指定偏移量的位置。
+        // 这个函数在网络数据包处理中常用于在 eBPF 程序中读取和修改数据包的特定部分。
         bpf_skb_store_bytes(skb, dport_off, &in_port, sizeof(in_port), 0);
         debugf("tc ingress: first rewritten");
     } else {
@@ -276,6 +286,7 @@ __section("classifier_egress") int mb_tc_egress(struct __sk_buff *skb)
     // like from 172.31.0.123:15006 => 10.0.0.1:23456
     // to avoid the client drop packet, we must reset the source port from
     // 15006 to 80.
+    
     // 为避免客户端丢包，我们必须将源端口从 15006 重置为 80。
     struct pair p;
     memset(&p, 0, sizeof(p));

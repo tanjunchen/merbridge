@@ -45,14 +45,13 @@ __section("cgroup/sendmsg4") int mb_sendmsg4(struct bpf_sock_addr *ctx)
     if (uid != SIDECAR_USER_ID) {
         // 获取当前 netns 的 cookie
         __u64 cookie = bpf_get_socket_cookie_addr(ctx);
-        // needs rewrite
         // 需要重写
         struct origin_info origin;
         memset(&origin, 0, sizeof(origin));
         set_ipv4(origin.ip, ctx->user_ip4);
         origin.port = ctx->user_port;
         // save original dst
-        // 将cookie和源地址信息更新到cookie_original_dst中，更新成功返回0，失败返回负值
+        // 将 cookie 和源地址信息更新到 cookie_original_dst 中，更新成功返回0，失败返回负值
         if (bpf_map_update_elem(&cookie_original_dst, &cookie, &origin,
                                 BPF_ANY)) {
             printk("update origin cookie failed: %d", cookie);

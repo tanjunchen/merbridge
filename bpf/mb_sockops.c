@@ -62,7 +62,6 @@ static inline int sockops_ipv4(struct bpf_sock_ops *skops)
                 }
 #endif
             } else {
-                // envoy to envoy
                 // envoy 访问 envoy
                 __u32 ip = skops->local_ip4;
                 // 将当前的 ProcessID 和 IP 信息写入 process_ip 这个 map
@@ -72,10 +71,11 @@ static inline int sockops_ipv4(struct bpf_sock_ops *skops)
         }
         // get_sockopts can read pid and cookie,
         // we should write a new map named pair_original_dst
-        // get_sockopts 可以读取 pid 和 cookie，我们应该写一个新的 map 命名为 pair_original_dst
+
+        // get_sockopts 可以读取 pid 和 cookie，我们应该编写一个名为 pair_original_dst 的新 M
         // 将四元组信息和对应的原始目的地址写入 pair_original_dst 中
         bpf_map_update_elem(&pair_original_dst, &p, &dd, BPF_ANY);
-        // 将当前 sock 和四元组保存在 sock_pair_map中
+        // 将当前 sock 和四元组保存在 sock_pair_map 中
         bpf_sock_hash_update(skops, &sock_pair_map, &p, BPF_NOEXIST);
     } else if (skops->local_port == OUT_REDIRECT_PORT ||
                skops->local_port == IN_REDIRECT_PORT ||

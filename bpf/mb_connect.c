@@ -90,21 +90,20 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
     __u32 dst_ip = ctx->user_ip4;
     // istio-proxy 用户身份 uid 不是 1337
     if (uid != SIDECAR_USER_ID) {
-        // 检查是否为本地回环地址（loopback address）
-        // 如果应用调用的是本地回环地址，则跳过
+        // inbound 方向
+        // 检查是否为本地回环地址（loopback address），如果应用调用的是本地回环地址，则跳过
         if ((dst_ip & 0xff) == 0x7f) {
             // app call local, bypass.
             return 1;
         }
         // 获取当前 netns 的 cookie
         __u64 cookie = bpf_get_socket_cookie_addr(ctx);
-        // app call others
-        // 调用其他的应用，uid 不是 1337 且应用没有调用本地
+        
+        // app 调用其他的应用，uid 不是 1337 且应用没有调用本地
         debugf("call from user container: cookie: %d, ip: %pI4, port: %d",
                cookie, &dst_ip, bpf_htons(ctx->user_port));
 
-        // we need redirect it to envoy.
-        // 需要重定向到 envoy 处理
+        // we need redirect it to envoy. 需要重定向到 envoy 处理
         struct origin_info origin;
         memset(&origin, 0, sizeof(origin));
         set_ipv4(origin.ip, dst_ip);
@@ -212,7 +211,8 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
         }
         ctx->user_port = bpf_htons(OUT_REDIRECT_PORT);
     } else {
-        // from envoy to others 从 envoy 进程中访问其他应用
+        // outbound 方向
+        // 从 envoy 进程中访问其他应用
         __u32 _dst_ip[4];
         set_ipv4(_dst_ip, dst_ip);
         // 目的 pod ip 没有在节点中，绕过
@@ -225,13 +225,14 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
 
         // dst ip is in this node, but not the current pod,
         // it is envoy to envoy connecting.
+
         // 目的地址在当前节点，但是不在当前 pod 中，处理同节点加速
         struct origin_info origin;
         memset(&origin, 0, sizeof(origin));
         set_ipv4(origin.ip, dst_ip);
-        origin.port = ctx->user_port;
-        // 如果存在则属于 envoy 到其他 envoy
+        origin.port = ctx->user_port;  
         if (curr_pod_ip) {
+             // 如果存在则属于 envoy 到其他 envoy
             if (curr_pod_ip != dst_ip) {
                 // call other pod, need redirect port.
                 // 处理 Mesh IS_EXCLUDE_PORT、IS_INCLUDE_PORT
@@ -269,7 +270,6 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
             __u32 pid = bpf_get_current_pid_tgid() >> 32; // tgid
             void *curr_ip = bpf_map_lookup_elem(&process_ip, &pid);
             if (curr_ip) {
-                // envoy to other envoy
                 // envoy 到其他的 envoy
                 if (*(__u32 *)curr_ip != dst_ip) {
                     debugf("enovy to other, rewrite dst port from %d to %d",
@@ -290,7 +290,11 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
                 // if src is equals dst, it means envoy call self pod,
                 // we should reject this traffic in sockops,
                 // envoy will create a new connection to self pod.
+                
                 // envoy 访问 Envoy，重定向到 15006 端口
+                // 尝试重定向到 15006 但如果是 envoy 访问自身 pod 可能会导致错误，
+                // 在这种情况下，我们可以在 sockops 中读取 src 和 dst ip，如果 src 等于 dst，
+                // 则意味着 envoy 调用 self pod，我们应该在 sockops 中拒绝此流量，envoy 将创建一个到 self pod 的新连接。
                 ctx->user_port = bpf_htons(IN_REDIRECT_PORT);
 #endif
             }
