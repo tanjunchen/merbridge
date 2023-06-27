@@ -52,6 +52,7 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
         if ((void *)(iph + 1) > data_end) {
             return TC_ACT_SHOT;
         }
+        // 用于检查一个 IP 数据包的协议是否为 IPIP
         if (iph->protocol == IPPROTO_IPIP) {
             iph = ((void *)iph + iph->ihl * 4);
             if ((void *)(iph + 1) > data_end) {
@@ -144,6 +145,7 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
         set_ipv6(p.sip, src_ip);
         set_ipv6(p.dip, dst_ip);
         p.sport = tcph->source;
+        // 重写端口到 15006 
         p.dport = in_port;
 
         __u16 dst_port = tcph->dest;
@@ -173,6 +175,7 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
         set_ipv6(p.sip, src_ip);
         set_ipv6(p.dip, dst_ip);
         p.sport = tcph->source;
+        // 重写端口到 15006 
         p.dport = in_port;
         struct origin_info *origin =
             bpf_map_lookup_elem(&pair_original_dst, &p);

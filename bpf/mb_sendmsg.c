@@ -37,6 +37,7 @@ __section("cgroup/sendmsg4") int mb_sendmsg4(struct bpf_sock_addr *ctx)
                                   DNS_CAPTURE_PORT_FLAG)) {
         // this query is not from mesh injected pod, or DNS CAPTURE not enabled.
         // we do nothing.
+        
         // 此查询不是来自网格注入的 pod，或者未启用 DNS CAPTURE。什么都不处理。
         // 我们只处理由 istio 或 kuma 管理的 pod 的流量。
         return 1;

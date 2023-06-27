@@ -165,6 +165,8 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
             // todo port or ipranges ignore.
             // if we can get the pod ip, we use bind func to bind the pod's ip
             // as the source ip to avoid quaternions conflict of different pods.
+
+            // 如果我们能获取到 pod 的 ip，我们使用 bind func 将 pod的 ip 绑定为源 ip，以避免不同 pod 的四元数冲突。
             struct sockaddr_in addr = {
                 .sin_addr =
                     {
@@ -225,7 +227,6 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
 
         // dst ip is in this node, but not the current pod,
         // it is envoy to envoy connecting.
-
         // 目的地址在当前节点，但是不在当前 pod 中，处理同节点加速
         struct origin_info origin;
         memset(&origin, 0, sizeof(origin));

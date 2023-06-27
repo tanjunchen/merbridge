@@ -55,7 +55,7 @@ static inline int sockops_ipv4(struct bpf_sock_ops *skops)
                 bpf_map_update_elem(&process_ip, &pid, &ip, BPF_ANY);
 #ifdef USE_RECONNECT
                 // bpf_htons:主机序到网络序
-                // 判断远程端口是不是15006端口，如果是的话则丢弃这个连接
+                // 判断远程端口是不是 15006 端口，如果是的话则丢弃这个连接
                 if (skops->remote_port >> 16 == bpf_htons(IN_REDIRECT_PORT)) {
                     printk("incorrect connection: cookie=%d", cookie);
                     return 1;
