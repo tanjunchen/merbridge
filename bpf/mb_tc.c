@@ -138,7 +138,6 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
         // like from 10.0.0.1:23456 => 172.31.0.123:80
         // we will rewrite the dest port from 80 to 15006
         // which will be: 10.0.0.1:23456 => 172.31.0.123:15006
-        
         // 重写连接 10.0.0.1:23456 => 172.31.0.123:15006 
         struct pair p;
         memset(&p, 0, sizeof(p));
@@ -168,8 +167,7 @@ __section("classifier_ingress") int mb_tc_ingress(struct __sk_buff *skb)
         bpf_skb_store_bytes(skb, dport_off, &in_port, sizeof(in_port), 0);
         debugf("tc ingress: first rewritten");
     } else {
-        // 具体请求
-        // request
+        // 后续具体请求，非首次握手包
         struct pair p;
         memset(&p, 0, sizeof(p));
         set_ipv6(p.sip, src_ip);
@@ -289,7 +287,6 @@ __section("classifier_egress") int mb_tc_egress(struct __sk_buff *skb)
     // like from 172.31.0.123:15006 => 10.0.0.1:23456
     // to avoid the client drop packet, we must reset the source port from
     // 15006 to 80.
-    
     // 为避免客户端丢包，我们必须将源端口从 15006 重置为 80。
     struct pair p;
     memset(&p, 0, sizeof(p));

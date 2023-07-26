@@ -213,8 +213,7 @@ static inline int tcp_connect4(struct bpf_sock_addr *ctx)
         }
         ctx->user_port = bpf_htons(OUT_REDIRECT_PORT);
     } else {
-        // outbound 方向
-        // 从 envoy 进程中访问其他应用
+        // outbound 方向 从 envoy 进程中访问其他应用
         __u32 _dst_ip[4];
         set_ipv4(_dst_ip, dst_ip);
         // 目的 pod ip 没有在节点中，绕过

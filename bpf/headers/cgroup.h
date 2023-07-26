@@ -60,6 +60,7 @@ static inline int get_current_cgroup_info(void *ctx,
             __u32 curr_ip_mark = s->mark;
             bpf_sk_release(s);
             // get ip addresses of current pod/ns.
+            // TODO(tanjunchen) CNI 模式中的 mark 是啥意思？
             __u32 *ip =
                 (__u32 *)bpf_map_lookup_elem(&mark_pod_ips_map, &curr_ip_mark);
             if (!ip) {
